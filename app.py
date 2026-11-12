@@ -248,7 +248,8 @@ def generate_pdf(summary: dict, table_df: pd.DataFrame) -> bytes:
       ("10Y EPS CAGR", f"{summary['eps_cagr']:.2f}%"),
       ("10Y Avg ROE", f"{summary['avg_roe']:.2f}%"),
       ("10Y Avg ROCE", f"{summary['avg_roce']:.2f}%"),
-      ("Graham IV (Adjusted)", f"Rs. {summary['iv_adjusted']:,.2f}"),
+      ("Graham IV (PE 7)", f"Rs. {summary['iv_pe_7']:,.2f}"),
+      ("Graham IV (PE 8.5)", f"Rs. {summary['iv_pe_85']:,.2f}"),
       ("Projected 10Y Price", f"Rs. {summary['future_price_10y']:,.2f}"),
       ("Projected 10Y Total Value", f"Rs. {summary['future_total_val']:,.2f}"),
   ]
@@ -308,7 +309,8 @@ def generate_pptx(summary: dict, table_df: pd.DataFrame) -> bytes:
       ("10Y EPS CAGR", f"{summary['eps_cagr']:.2f}%"),
       ("10Y Avg ROE", f"{summary['avg_roe']:.2f}%"),
       ("10Y Avg ROCE", f"{summary['avg_roce']:.2f}%"),
-      ("Graham IV (Adjusted)", f"Rs. {summary['iv_adjusted']:,.2f}"),
+      ("Graham IV (PE 7)", f"Rs. {summary['iv_pe_7']:,.2f}"),
+      ("Graham IV (PE 8.5)", f"Rs. {summary['iv_pe_85']:,.2f}"),
       ("Projected 10Y Price", f"Rs. {summary['future_price_10y']:,.2f}"),
       ("Projected 10Y Dividends", f"Rs. {summary['future_div_10y']:,.2f}"),
       ("Total 10Y Value (Price+Div)", f"Rs. {summary['future_total_val']:,.2f}"),
@@ -403,11 +405,12 @@ if st.button("Run Valuation & Generate Report", type="primary"):
       else:
         current_pe = cmp / eps[-1] if eps[-1] > 0 else 0.0
 
-      avg_pe = cmp / avg_eps if avg_eps > 0 else 0.0
       latest_debt_ps = debt_ps[-1]
 
-      # Modified Graham Intrinsic Value without fixed 7% / 8.5% multipliers
-      iv_adjusted = (avg_eps * (1.0 + avg_growth_g / 100.0) * avg_pe) - latest_debt_ps
+      # Graham Intrinsic Value explicitly using 7 and 8.5 multipliers
+      intrinsic_val_base = avg_eps * (1.0 + avg_growth_g / 100.0)
+      iv_pe_7 = max(0.0, (intrinsic_val_base * 7.0) - latest_debt_ps)
+      iv_pe_85 = max(0.0, (intrinsic_val_base * 8.5) - latest_debt_ps)
 
       g = eps_cagr / 100.0
       future_eps_10y = eps[-1] * ((1.0 + g) ** 10)
@@ -447,7 +450,8 @@ if st.button("Run Valuation & Generate Report", type="primary"):
           "eps_cagr": eps_cagr,
           "avg_roe": avg_roe,
           "avg_roce": avg_roce,
-          "iv_adjusted": iv_adjusted,
+          "iv_pe_7": iv_pe_7,
+          "iv_pe_85": iv_pe_85,
           "future_eps_10y": future_eps_10y,
           "future_price_10y": future_price_10y,
           "future_div_10y": future_div_10y,
@@ -500,12 +504,13 @@ if st.button("Run Valuation & Generate Report", type="primary"):
       st.markdown('<h3 class="section-title">2. Intrinsic Value & 10-Year Projections</h3>', unsafe_allow_html=True)
       p1, p2, p3 = st.columns(3)
       with p1:
-        render_card("Adjusted Intrinsic Value", f"Rs. {iv_adjusted:,.2f}")
-        render_card("Projected 10Y EPS", f"Rs. {future_eps_10y:.2f}")
+        render_card("Graham IV (PE 7)", f"Rs. {iv_pe_7:,.2f}")
+        render_card("Projected 10Y EPS", f"Rs. {future_eps_10y:,.2f}")
       with p2:
+        render_card("Graham IV (PE 8.5)", f"Rs. {iv_pe_85:,.2f}")
         render_card("Projected 10Y Stock Price", f"Rs. {future_price_10y:,.2f}")
       with p3:
-        render_card("Projected 10Y Dividends", f"Rs. {future_div_10y:.2f}")
+        render_card("Projected 10Y Dividends", f"Rs. {future_div_10y:,.2f}")
         render_card(
             "Total 10Y Value (Price + Div)",
             f"Rs. {future_total_val:,.2f} ({total_cagr:.2f}% CAGR)",
