@@ -235,9 +235,9 @@ def generate_pdf(summary: dict, table_df: pd.DataFrame) -> bytes:
       ("Annual Dividend", f"Rs. {summary['annual_dividend']:.2f}"),
       ("Current P/E", f"{summary['current_pe']:.0f}x"),
       ("10Y Average P/E", f"{summary['avg_pe']:.0f}x"),
-      ("10Y EPS CAGR", f"{summary['eps_cagr']:.0f}%"),
+      ("10Y EPS CAGR", f"{summary['eps_cagr']:.2f}%"),
       ("10Y Avg ROE", f"{summary['avg_roe']:.0f}%"),
-      ("10Y Avg ROCE", f"{summary['avg_roce']:.0f}%"),
+      ("10Y Avg ROCE", f"{summary['avg_roce']:.2f}%"),
       ("Graham IV (PE 7)", f"Rs. {summary['iv_pe_7']:.0f}"),
       ("Graham IV (PE 8.5)", f"Rs. {summary['iv_pe_85']:.0f}"),
       ("Projected 10Y Price", f"Rs. {summary['future_price_10y']:.0f}"),
@@ -296,16 +296,16 @@ def generate_pptx(summary: dict, table_df: pd.DataFrame) -> bytes:
       ("Annual Dividend", f"Rs. {summary['annual_dividend']:.2f}"),
       ("Current P/E", f"{summary['current_pe']:.0f}x"),
       ("10Y Average P/E", f"{summary['avg_pe']:.0f}x"),
-      ("10Y EPS CAGR", f"{summary['eps_cagr']:.0f}%"),
-      ("10Y Avg ROE", f"{summary['avg_roe']:.0f}%"),
-      ("10Y Avg ROCE", f"{summary['avg_roce']:.0f}%"),
+      ("10Y EPS CAGR", f"{summary['eps_cagr']:.2f}%"),
+      ("10Y Avg ROE", f"{summary['avg_roe']:.2f}%"),
+      ("10Y Avg ROCE", f"{summary['avg_roce']:.2f}%"),
       ("Graham IV (PE 7)", f"Rs. {summary['iv_pe_7']:.0f}"),
       ("Graham IV (PE 8.5)", f"Rs. {summary['iv_pe_85']:.0f}"),
       ("Projected 10Y Price", f"Rs. {summary['future_price_10y']:.0f}"),
       ("Projected 10Y Dividends", f"Rs. {summary['future_div_10y']:.0f}"),
       ("Total 10Y Value (Price+Div)", f"Rs. {summary['future_total_val']:.0f}"),
-      ("Projected Price CAGR", f"{summary['price_cagr']:.0f}%"),
-      ("Projected Total CAGR", f"{summary['total_cagr']:.0f}%"),
+      ("Projected Price CAGR", f"{summary['price_cagr']:.2f}%"),
+      ("Projected Total CAGR", f"{summary['total_cagr']:.2f}%"),
   ]
 
   rows, cols = 5, 3
@@ -381,18 +381,16 @@ if st.button("Run Valuation & Generate Report", type="primary"):
       avg_roe = float(np.mean(roe)) if len(roe) > 0 else raw["top_roe"]
       avg_roce = float(np.mean(roce)) if len(roce) > 0 else raw["top_roce"]
 
-      eps_cagr = int(
-          round(
-              ((eps[-1] / eps[0]) ** (1.0 / n) - 1.0) * 100.0 if eps[0] > 0 else 0.0
-          )
+      eps_cagr = (
+          ((eps[-1] / eps[0]) ** (1.0 / n) - 1.0) * 100.0 if eps[0] > 0 else 0.0
       )
 
       current_pe = cmp / eps[-1] if eps[-1] > 0 else 0.0
       avg_pe = cmp / avg_eps if avg_eps > 0 else 0.0
       latest_debt_ps = debt_ps[-1]
 
-      iv_pe_7 = max(0.0, (avg_eps * (7.0 + 1.0 * eps_cagr)) - latest_debt_ps)
-      iv_pe_85 = max(0.0, (avg_eps * (8.5 + 2.0 * eps_cagr)) - latest_debt_ps)
+      iv_pe_7 = max(0.0, (avg_eps * (7.0 + 1.0 * avg_growth_g)) - latest_debt_ps)
+      iv_pe_85 = max(0.0, (avg_eps * (8.5 + 2.0 * avg_growth_g)) - latest_debt_ps)
 
       future_eps_10y = eps[-1] * ((1.0 + eps_cagr / 100.0) ** 10)
       future_price_10y = future_eps_10y * avg_pe
@@ -470,7 +468,7 @@ if st.button("Run Valuation & Generate Report", type="primary"):
       with c3:
         render_card("Current Stock Price (CMP)", f"Rs. {cmp:.2f}")
       with c4:
-        render_card("10Y EPS CAGR", f"{eps_cagr:.0f}%")
+        render_card("10Y EPS CAGR", f"{eps_cagr:.2f}%")
 
       c5, c6, c7, c8 = st.columns(4)
       with c5:
