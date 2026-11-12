@@ -231,11 +231,10 @@ if st.button("Run Valuation & Generate Report", type="primary"):
       )
       current_pe = cmp / eps[-1] if eps[-1] > 0 else 0.0
       avg_pe = cmp / avg_eps if avg_eps > 0 else 0.0
-      latest_debt_ps = debt_ps[-1]
 
-      # Excel Exact Formulas
-      iv_pe_7 = max(0.0, (avg_eps * (7.0 + 1.0 * avg_growth_g)))
-      iv_pe_85 = max(0.0, (avg_eps * (8.5 + 2.0 * avg_growth_g)))
+      # Master Excel Exact Formulas for Graham Intrinsic Value (Without Debt Deduction)
+      iv_pe_7 = avg_eps * (7.0 + 1.0 * avg_growth_g)
+      iv_pe_85 = avg_eps * (8.5 + 2.0 * avg_growth_g)
 
       future_eps_10y = eps[-1] * ((1.0 + eps_cagr / 100.0) ** 10)
       future_price_10y = future_eps_10y * current_pe
