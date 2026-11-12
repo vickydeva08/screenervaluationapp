@@ -77,7 +77,7 @@ st.markdown(
     """
     <div class="report-header">
         <h1>📊 Equity Valuation & Fundamental Report</h1>
-        <p>Automated 10-Year Graham Intrinsic Value (PE 7 & PE 8.5), Return Ratios & Future Projection Generator</p>
+        <p>Automated 10-Year Graham Intrinsic Value, Return Ratios & Future Projection Generator</p>
     </div>
     """,
     unsafe_allow_html=True,
@@ -140,7 +140,6 @@ def extract_screener_data(url: str) -> dict:
 
   market_cap = ratios.get("Market Cap", 0.0)
   cmp = ratios.get("Current Price", 0.0)
-  stock_pe = ratios.get("Stock P/E", 0.0)
   face_value = ratios.get("Face Value", 1.0) or 1.0
   div_yield = ratios.get("Dividend Yield", 0.0)
   annual_div = cmp * (div_yield / 100.0)
@@ -172,13 +171,6 @@ def extract_screener_data(url: str) -> dict:
   if pnl_raw.empty or bs_raw.empty:
     raise ValueError("Required Profit & Loss or Balance Sheet tables not found.")
 
-  ttm_rows = pnl_raw[pnl_raw.index.str.contains("TTM", case=False, na=False)]
-  ttm_eps = (
-      float(ttm_rows["EPS in Rs"].iloc[-1])
-      if (not ttm_rows.empty and "EPS in Rs" in ttm_rows.columns)
-      else 0.0
-  )
-
   pnl_df = pnl_raw[~pnl_raw.index.str.contains("TTM", case=False, na=False)].tail(10)
   bs_df = bs_raw[~bs_raw.index.str.contains("TTM", case=False, na=False)].tail(10)
   ratios_df = ratios_raw[~ratios_raw.index.str.contains("TTM", case=False, na=False)].tail(10)
@@ -206,8 +198,6 @@ def extract_screener_data(url: str) -> dict:
       "company": company_name,
       "market_cap": market_cap,
       "cmp": cmp,
-      "stock_pe": stock_pe,
-      "ttm_eps": ttm_eps,
       "face_value": face_value,
       "annual_dividend": annual_div,
       "top_roce": top_roce,
@@ -243,15 +233,15 @@ def generate_pdf(summary: dict, table_df: pd.DataFrame) -> bytes:
       ("Market Cap", f"Rs. {summary['market_cap']:,.2f} Cr."),
       ("Current Price (CMP)", f"Rs. {summary['cmp']:.2f}"),
       ("Annual Dividend", f"Rs. {summary['annual_dividend']:.2f}"),
-      ("Current P/E", f"{summary['current_pe']:.2f}x"),
-      ("10Y Average P/E", f"{summary['avg_pe']:.2f}x"),
-      ("10Y EPS CAGR", f"{summary['eps_cagr']:.2f}%"),
-      ("10Y Avg ROE", f"{summary['avg_roe']:.2f}%"),
-      ("10Y Avg ROCE", f"{summary['avg_roce']:.2f}%"),
-      ("Graham IV (PE 7, Net)", f"Rs. {summary['iv_7_net']:,.2f}"),
-      ("Graham IV (PE 8.5, Net)", f"Rs. {summary['iv_85_net']:,.2f}"),
-      ("Projected 10Y Price", f"Rs. {summary['future_price_10y']:,.2f}"),
-      ("Projected 10Y Total Value", f"Rs. {summary['future_total_val']:,.2f}"),
+      ("Current P/E", f"{summary['current_pe']:.0f}x"),
+      ("10Y Average P/E", f"{summary['avg_pe']:.0f}x"),
+      ("10Y EPS CAGR", f"{summary['eps_cagr']:.0f}%"),
+      ("10Y Avg ROE", f"{summary['avg_roe']:.0f}%"),
+      ("10Y Avg ROCE", f"{summary['avg_roce']:.0f}%"),
+      ("Graham IV (PE 7)", f"Rs. {summary['iv_pe_7']:.0f}"),
+      ("Graham IV (PE 8.5)", f"Rs. {summary['iv_pe_85']:.0f}"),
+      ("Projected 10Y Price", f"Rs. {summary['future_price_10y']:.0f}"),
+      ("Projected 10Y Total Value", f"Rs. {summary['future_total_val']:.0f}"),
   ]
 
   col_w = 68
@@ -304,18 +294,18 @@ def generate_pptx(summary: dict, table_df: pd.DataFrame) -> bytes:
       ("Market Cap", f"Rs. {summary['market_cap']:,.2f} Cr."),
       ("Current Price (CMP)", f"Rs. {summary['cmp']:.2f}"),
       ("Annual Dividend", f"Rs. {summary['annual_dividend']:.2f}"),
-      ("Current P/E", f"{summary['current_pe']:.2f}x"),
-      ("10Y Average P/E", f"{summary['avg_pe']:.2f}x"),
-      ("10Y EPS CAGR", f"{summary['eps_cagr']:.2f}%"),
-      ("10Y Avg ROE", f"{summary['avg_roe']:.2f}%"),
-      ("10Y Avg ROCE", f"{summary['avg_roce']:.2f}%"),
-      ("Graham IV (PE 7, Net)", f"Rs. {summary['iv_7_net']:,.2f}"),
-      ("Graham IV (PE 8.5, Net)", f"Rs. {summary['iv_85_net']:,.2f}"),
-      ("Projected 10Y Price", f"Rs. {summary['future_price_10y']:,.2f}"),
-      ("Projected 10Y Dividends", f"Rs. {summary['future_div_10y']:,.2f}"),
-      ("Total 10Y Value (Price+Div)", f"Rs. {summary['future_total_val']:,.2f}"),
-      ("Projected Price CAGR", f"{summary['price_cagr']:.2f}%"),
-      ("Projected Total CAGR", f"{summary['total_cagr']:.2f}%"),
+      ("Current P/E", f"{summary['current_pe']:.0f}x"),
+      ("10Y Average P/E", f"{summary['avg_pe']:.0f}x"),
+      ("10Y EPS CAGR", f"{summary['eps_cagr']:.0f}%"),
+      ("10Y Avg ROE", f"{summary['avg_roe']:.0f}%"),
+      ("10Y Avg ROCE", f"{summary['avg_roce']:.0f}%"),
+      ("Graham IV (PE 7)", f"Rs. {summary['iv_pe_7']:.0f}"),
+      ("Graham IV (PE 8.5)", f"Rs. {summary['iv_pe_85']:.0f}"),
+      ("Projected 10Y Price", f"Rs. {summary['future_price_10y']:.0f}"),
+      ("Projected 10Y Dividends", f"Rs. {summary['future_div_10y']:.0f}"),
+      ("Total 10Y Value (Price+Div)", f"Rs. {summary['future_total_val']:.0f}"),
+      ("Projected Price CAGR", f"{summary['price_cagr']:.0f}%"),
+      ("Projected Total CAGR", f"{summary['total_cagr']:.0f}%"),
   ]
 
   rows, cols = 5, 3
@@ -387,36 +377,25 @@ if st.button("Run Valuation & Generate Report", type="primary"):
       net_bv_ps = gross_bv_ps - debt_ps
 
       avg_eps = float(np.mean(eps))
+      avg_growth_g = float(np.mean(yoy_growth[:-1]))
       avg_roe = float(np.mean(roe)) if len(roe) > 0 else raw["top_roe"]
       avg_roce = float(np.mean(roce)) if len(roce) > 0 else raw["top_roce"]
 
-      cagr_periods = n
-      eps_cagr = (
-          round(((eps[-1] / eps[0]) ** (1.0 / cagr_periods) - 1.0) * 100.0, 2)
-          if eps[0] > 0
-          else 0.0
+      eps_cagr = int(
+          round(
+              ((eps[-1] / eps[0]) ** (1.0 / n) - 1.0) * 100.0 if eps[0] > 0 else 0.0
+          )
       )
 
-      if raw.get("stock_pe", 0.0) > 0:
-        current_pe = raw["stock_pe"]
-      elif raw.get("ttm_eps", 0.0) > 0:
-        current_pe = cmp / raw["ttm_eps"]
-      else:
-        current_pe = cmp / eps[-1] if eps[-1] > 0 else 0.0
-
+      current_pe = cmp / eps[-1] if eps[-1] > 0 else 0.0
       avg_pe = cmp / avg_eps if avg_eps > 0 else 0.0
       latest_debt_ps = debt_ps[-1]
 
-      # Graham Intrinsic Value using PE 7 and PE 8.5 with 10Y EPS CAGR
-      iv_7_gross = avg_eps * (7.0 + 1.0 * eps_cagr)
-      iv_85_gross = avg_eps * (8.5 + 2.0 * eps_cagr)
+      iv_pe_7 = max(0.0, (avg_eps * (7.0 + 1.0 * eps_cagr)) - latest_debt_ps)
+      iv_pe_85 = max(0.0, (avg_eps * (8.5 + 2.0 * eps_cagr)) - latest_debt_ps)
 
-      iv_7_net = iv_7_gross - latest_debt_ps
-      iv_85_net = iv_85_gross - latest_debt_ps
-
-      g = eps_cagr / 100.0
-      future_eps_10y = eps[-1] * ((1.0 + g) ** 10)
-      future_price_10y = future_eps_10y * current_pe
+      future_eps_10y = eps[-1] * ((1.0 + eps_cagr / 100.0) ** 10)
+      future_price_10y = future_eps_10y * avg_pe
       future_div_10y = annual_div * 10.0
       future_total_val = future_price_10y + future_div_10y
 
@@ -452,8 +431,8 @@ if st.button("Run Valuation & Generate Report", type="primary"):
           "eps_cagr": eps_cagr,
           "avg_roe": avg_roe,
           "avg_roce": avg_roce,
-          "iv_7_net": iv_7_net,
-          "iv_85_net": iv_85_net,
+          "iv_pe_7": iv_pe_7,
+          "iv_pe_85": iv_pe_85,
           "future_eps_10y": future_eps_10y,
           "future_price_10y": future_price_10y,
           "future_div_10y": future_div_10y,
@@ -491,31 +470,31 @@ if st.button("Run Valuation & Generate Report", type="primary"):
       with c3:
         render_card("Current Stock Price (CMP)", f"Rs. {cmp:.2f}")
       with c4:
-        render_card("10Y EPS CAGR", f"{eps_cagr:.2f}%")
+        render_card("10Y EPS CAGR", f"{eps_cagr:.0f}%")
 
       c5, c6, c7, c8 = st.columns(4)
       with c5:
-        render_card("Current P/E Ratio", f"{current_pe:.2f}x")
+        render_card("Current P/E Ratio", f"{current_pe:.0f}x")
       with c6:
-        render_card("10Y Average P/E Ratio", f"{avg_pe:.2f}x")
+        render_card("10Y Average P/E Ratio", f"{avg_pe:.0f}x")
       with c7:
-        render_card("10Y Average ROE", f"{avg_roe:.2f}%")
+        render_card("10Y Average ROE", f"{avg_roe:.0f}%")
       with c8:
-        render_card("10Y Average ROCE", f"{avg_roce:.2f}%")
+        render_card("10Y Average ROCE", f"{avg_roce:.0f}%")
 
       st.markdown('<h3 class="section-title">2. Intrinsic Value & 10-Year Projections</h3>', unsafe_allow_html=True)
       p1, p2, p3 = st.columns(3)
       with p1:
-        render_card("Graham IV (PE 7, Net)", f"Rs. {iv_7_net:,.2f}")
-        render_card("Projected 10Y EPS", f"Rs. {future_eps_10y:.2f}")
+        render_card("Graham IV (PE 7)", f"Rs. {iv_pe_7:.0f}")
+        render_card("Projected 10Y EPS", f"Rs. {future_eps_10y:.0f}")
       with p2:
-        render_card("Graham IV (PE 8.5, Net)", f"Rs. {iv_85_net:,.2f}")
-        render_card("Projected 10Y Stock Price", f"Rs. {future_price_10y:.2f}")
+        render_card("Graham IV (PE 8.5)", f"Rs. {iv_pe_85:.0f}")
+        render_card("Projected 10Y Stock Price", f"Rs. {future_price_10y:.0f}")
       with p3:
-        render_card("Projected 10Y Dividends", f"Rs. {future_div_10y:.2f}")
+        render_card("Projected 10Y Dividends", f"Rs. {future_div_10y:.0f}")
         render_card(
             "Total 10Y Value (Price + Div)",
-            f"Rs. {future_total_val:,.2f} ({total_cagr:.2f}% CAGR)",
+            f"Rs. {future_total_val:.0f} ({total_cagr:.0f}% CAGR)",
         )
 
       st.markdown('<h3 class="section-title">3. 10-Year Historical Financial Data</h3>', unsafe_allow_html=True)
