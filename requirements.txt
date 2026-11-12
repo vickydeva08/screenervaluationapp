@@ -3,3 +3,5 @@ pandas
 numpy
 beautifulsoup4
 openpyxl
+fpdf2
+python-pptx
