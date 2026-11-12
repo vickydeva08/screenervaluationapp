@@ -140,6 +140,7 @@ def extract_screener_data(url: str) -> dict:
 
   market_cap = ratios.get("Market Cap", 0.0)
   cmp = ratios.get("Current Price", 0.0)
+  stock_pe = ratios.get("Stock P/E", 0.0)
   face_value = ratios.get("Face Value", 1.0) or 1.0
   div_yield = ratios.get("Dividend Yield", 0.0)
   annual_div = cmp * (div_yield / 100.0)
@@ -162,31 +163,38 @@ def extract_screener_data(url: str) -> dict:
       metric = re.sub(r"\+$", "", cells[0]).strip()
       rows[metric] = [clean_num(c) for c in cells[1:]]
     df = pd.DataFrame(rows, index=headers[1:])
-    df = df[~df.index.str.contains("TTM", case=False, na=False)]
-    return df.tail(10)
+    return df
 
-  pnl_df = parse_section_table("profit-loss")
-  bs_df = parse_section_table("balance-sheet")
-  ratios_df = parse_section_table("ratios")
+  pnl_raw = parse_section_table("profit-loss")
+  bs_raw = parse_section_table("balance-sheet")
+  ratios_raw = parse_section_table("ratios")
 
-  if pnl_df.empty or bs_df.empty:
+  if pnl_raw.empty or bs_raw.empty:
     raise ValueError("Required Profit & Loss or Balance Sheet tables not found.")
+
+  ttm_rows = pnl_raw[pnl_raw.index.str.contains("TTM", case=False, na=False)]
+  ttm_eps = (
+      float(ttm_rows["EPS in Rs"].iloc[-1])
+      if (not ttm_rows.empty and "EPS in Rs" in ttm_rows.columns)
+      else 0.0
+  )
+
+  pnl_df = pnl_raw[~pnl_raw.index.str.contains("TTM", case=False, na=False)].tail(10)
+  bs_df = bs_raw[~bs_raw.index.str.contains("TTM", case=False, na=False)].tail(10)
+  ratios_df = ratios_raw[~ratios_raw.index.str.contains("TTM", case=False, na=False)].tail(10)
 
   common_years = pnl_df.index.intersection(bs_df.index)[-10:]
   pnl_10 = pnl_df.loc[common_years]
   bs_10 = bs_df.loc[common_years]
 
-  # Extract ROCE and ROE from Ratios table; calculate ROE from Net Profit / Net Worth if missing
   roce_list = []
   roe_list = []
   for yr in common_years:
-    # ROCE
     if not ratios_df.empty and yr in ratios_df.index and "ROCE %" in ratios_df.columns:
       roce_list.append(ratios_df.loc[yr, "ROCE %"])
     else:
       roce_list.append(0.0)
 
-    # ROE
     if not ratios_df.empty and yr in ratios_df.index and "ROE %" in ratios_df.columns:
       roe_list.append(ratios_df.loc[yr, "ROE %"])
     else:
@@ -198,6 +206,8 @@ def extract_screener_data(url: str) -> dict:
       "company": company_name,
       "market_cap": market_cap,
       "cmp": cmp,
+      "stock_pe": stock_pe,
+      "ttm_eps": ttm_eps,
       "face_value": face_value,
       "annual_dividend": annual_div,
       "top_roce": top_roce,
@@ -216,7 +226,6 @@ def generate_pdf(summary: dict, table_df: pd.DataFrame) -> bytes:
   pdf = FPDF(orientation="L", unit="mm", format="A4")
   pdf.add_page()
 
-  # Header
   pdf.set_fill_color(30, 58, 138)
   pdf.rect(0, 0, 297, 25, "F")
   pdf.set_text_color(255, 255, 255)
@@ -224,7 +233,6 @@ def generate_pdf(summary: dict, table_df: pd.DataFrame) -> bytes:
   pdf.set_xy(10, 8)
   pdf.cell(0, 10, f"{summary['company']} - Fundamental & Valuation Report", ln=True)
 
-  # Key Metrics Grid
   pdf.set_text_color(0, 0, 0)
   pdf.set_xy(10, 32)
   pdf.set_font("Helvetica", "B", 11)
@@ -258,7 +266,6 @@ def generate_pdf(summary: dict, table_df: pd.DataFrame) -> bytes:
     pdf.set_font("Helvetica", "", 9)
     pdf.cell(30, row_h, v, border=1)
 
-  # 10-Year Table
   pdf.set_xy(10, 72)
   pdf.set_font("Helvetica", "B", 11)
   pdf.cell(0, 8, "10-Year Historical Performance", ln=True)
@@ -285,7 +292,6 @@ def generate_pptx(summary: dict, table_df: pd.DataFrame) -> bytes:
   prs.slide_width = Inches(13.333)
   prs.slide_height = Inches(7.5)
 
-  # Slide 1: Executive Summary & Valuation
   slide1 = prs.slides.add_slide(prs.slide_layouts[6])
   title_box = slide1.shapes.add_textbox(Inches(0.5), Inches(0.4), Inches(12.3), Inches(0.8))
   tf = title_box.text_frame
@@ -324,7 +330,6 @@ def generate_pptx(summary: dict, table_df: pd.DataFrame) -> bytes:
       para.font.size = Pt(13)
     cell.text_frame.paragraphs[0].font.bold = True
 
-  # Slide 2: 10-Year Historical Data Table
   slide2 = prs.slides.add_slide(prs.slide_layouts[6])
   title_box2 = slide2.shapes.add_textbox(Inches(0.5), Inches(0.4), Inches(12.3), Inches(0.8))
   p2 = title_box2.text_frame.paragraphs[0]
@@ -386,11 +391,20 @@ if st.button("Run Valuation & Generate Report", type="primary"):
       avg_roe = float(np.mean(roe)) if len(roe) > 0 else raw["top_roe"]
       avg_roce = float(np.mean(roce)) if len(roce) > 0 else raw["top_roce"]
 
+      cagr_periods = n
       eps_cagr = (
-          ((eps[-1] / eps[0]) ** (1.0 / n) - 1.0) * 100.0 if eps[0] > 0 else 0.0
+          round(((eps[-1] / eps[0]) ** (1.0 / cagr_periods) - 1.0) * 100.0, 2)
+          if eps[0] > 0
+          else 0.0
       )
 
-      current_pe = cmp / eps[-1] if eps[-1] > 0 else 0.0
+      if raw.get("stock_pe", 0.0) > 0:
+        current_pe = raw["stock_pe"]
+      elif raw.get("ttm_eps", 0.0) > 0:
+        current_pe = cmp / raw["ttm_eps"]
+      else:
+        current_pe = cmp / eps[-1] if eps[-1] > 0 else 0.0
+
       avg_pe = cmp / avg_eps if avg_eps > 0 else 0.0
       latest_debt_ps = debt_ps[-1]
 
@@ -400,7 +414,8 @@ if st.button("Run Valuation & Generate Report", type="primary"):
       iv_7_net = iv_7_gross - latest_debt_ps
       iv_85_net = iv_85_gross - latest_debt_ps
 
-      future_eps_10y = eps[-1] * ((1.0 + eps_cagr / 100.0) ** 10)
+      g = eps_cagr / 100.0
+      future_eps_10y = eps[-1] * ((1.0 + g) ** 10)
       future_price_10y = future_eps_10y * current_pe
       future_div_10y = annual_div * 10.0
       future_total_val = future_price_10y + future_div_10y
@@ -449,7 +464,6 @@ if st.button("Run Valuation & Generate Report", type="primary"):
 
       st.success(f"Presentation Report Ready: {raw['company']}")
 
-      # Download Buttons Row
       dl_col1, dl_col2, _ = st.columns([1, 1, 2])
       with dl_col1:
         pdf_bytes = generate_pdf(summary_data, table_df)
@@ -468,7 +482,6 @@ if st.button("Run Valuation & Generate Report", type="primary"):
             mime="application/vnd.openxmlformats-officedocument.presentationml.presentation",
         )
 
-      # Section 1: Company Overview & Return Ratios
       st.markdown('<h3 class="section-title">1. Company Overview & Return Ratios</h3>', unsafe_allow_html=True)
       c1, c2, c3, c4 = st.columns(4)
       with c1:
@@ -490,7 +503,6 @@ if st.button("Run Valuation & Generate Report", type="primary"):
       with c8:
         render_card("10Y Average ROCE", f"{avg_roce:.2f}%")
 
-      # Section 2: Intrinsic Value & 10-Year Projections
       st.markdown('<h3 class="section-title">2. Intrinsic Value & 10-Year Projections</h3>', unsafe_allow_html=True)
       p1, p2, p3 = st.columns(3)
       with p1:
@@ -506,7 +518,6 @@ if st.button("Run Valuation & Generate Report", type="primary"):
             f"Rs. {future_total_val:.2f} ({total_cagr:.2f}% CAGR)",
         )
 
-      # Section 3: 10-Year Historical Data Table
       st.markdown('<h3 class="section-title">3. 10-Year Historical Financial Data</h3>', unsafe_allow_html=True)
       st.dataframe(table_df, use_container_width=True, hide_index=True)
 
