@@ -248,10 +248,9 @@ def generate_pdf(summary: dict, table_df: pd.DataFrame) -> bytes:
       ("10Y EPS CAGR", f"{summary['eps_cagr']:.2f}%"),
       ("10Y Avg ROE", f"{summary['avg_roe']:.2f}%"),
       ("10Y Avg ROCE", f"{summary['avg_roce']:.2f}%"),
-      ("Graham IV (PE 7, Net)", f"Rs. {summary['iv_7_net']:.2f}"),
-      ("Graham IV (PE 8.5, Net)", f"Rs. {summary['iv_85_net']:.2f}"),
-      ("Projected 10Y Price", f"Rs. {summary['future_price_10y']:.2f}"),
-      ("Projected 10Y Total Value", f"Rs. {summary['future_total_val']:.2f}"),
+      ("Graham IV (Adjusted)", f"Rs. {summary['iv_adjusted']:,.2f}"),
+      ("Projected 10Y Price", f"Rs. {summary['future_price_10y']:,.2f}"),
+      ("Projected 10Y Total Value", f"Rs. {summary['future_total_val']:,.2f}"),
   ]
 
   col_w = 68
@@ -262,11 +261,11 @@ def generate_pdf(summary: dict, table_df: pd.DataFrame) -> bytes:
     c = idx % 4
     pdf.set_xy(10 + c * col_w, start_y + r * row_h)
     pdf.set_font("Helvetica", "B", 9)
-    pdf.cell(38, row_h, f"{k}:", border=1)
+    pdf.cell(42, row_h, f"{k}:", border=1)
     pdf.set_font("Helvetica", "", 9)
-    pdf.cell(30, row_h, v, border=1)
+    pdf.cell(26, row_h, v, border=1)
 
-  pdf.set_xy(10, 72)
+  pdf.set_xy(10, 75)
   pdf.set_font("Helvetica", "B", 11)
   pdf.cell(0, 8, "10-Year Historical Performance", ln=True)
 
@@ -309,11 +308,10 @@ def generate_pptx(summary: dict, table_df: pd.DataFrame) -> bytes:
       ("10Y EPS CAGR", f"{summary['eps_cagr']:.2f}%"),
       ("10Y Avg ROE", f"{summary['avg_roe']:.2f}%"),
       ("10Y Avg ROCE", f"{summary['avg_roce']:.2f}%"),
-      ("Graham IV (PE 7, Net)", f"Rs. {summary['iv_7_net']:.2f}"),
-      ("Graham IV (PE 8.5, Net)", f"Rs. {summary['iv_85_net']:.2f}"),
-      ("Projected 10Y Price", f"Rs. {summary['future_price_10y']:.2f}"),
-      ("Projected 10Y Dividends", f"Rs. {summary['future_div_10y']:.2f}"),
-      ("Total 10Y Value (Price+Div)", f"Rs. {summary['future_total_val']:.2f}"),
+      ("Graham IV (Adjusted)", f"Rs. {summary['iv_adjusted']:,.2f}"),
+      ("Projected 10Y Price", f"Rs. {summary['future_price_10y']:,.2f}"),
+      ("Projected 10Y Dividends", f"Rs. {summary['future_div_10y']:,.2f}"),
+      ("Total 10Y Value (Price+Div)", f"Rs. {summary['future_total_val']:,.2f}"),
       ("Projected Price CAGR", f"{summary['price_cagr']:.2f}%"),
       ("Projected Total CAGR", f"{summary['total_cagr']:.2f}%"),
   ]
@@ -408,11 +406,8 @@ if st.button("Run Valuation & Generate Report", type="primary"):
       avg_pe = cmp / avg_eps if avg_eps > 0 else 0.0
       latest_debt_ps = debt_ps[-1]
 
-      iv_7_gross = avg_eps * (7.0 + 1.0 * avg_growth_g)
-      iv_85_gross = avg_eps * (8.5 + 2.0 * avg_growth_g)
-
-      iv_7_net = iv_7_gross - latest_debt_ps
-      iv_85_net = iv_85_gross - latest_debt_ps
+      # Modified Graham Intrinsic Value without fixed 7% / 8.5% multipliers
+      iv_adjusted = (avg_eps * (1.0 + avg_growth_g / 100.0) * avg_pe) - latest_debt_ps
 
       g = eps_cagr / 100.0
       future_eps_10y = eps[-1] * ((1.0 + g) ** 10)
@@ -452,8 +447,7 @@ if st.button("Run Valuation & Generate Report", type="primary"):
           "eps_cagr": eps_cagr,
           "avg_roe": avg_roe,
           "avg_roce": avg_roce,
-          "iv_7_net": iv_7_net,
-          "iv_85_net": iv_85_net,
+          "iv_adjusted": iv_adjusted,
           "future_eps_10y": future_eps_10y,
           "future_price_10y": future_price_10y,
           "future_div_10y": future_div_10y,
@@ -506,16 +500,15 @@ if st.button("Run Valuation & Generate Report", type="primary"):
       st.markdown('<h3 class="section-title">2. Intrinsic Value & 10-Year Projections</h3>', unsafe_allow_html=True)
       p1, p2, p3 = st.columns(3)
       with p1:
-        render_card("Graham IV (PE 7, Net)", f"Rs. {iv_7_net:.2f}")
+        render_card("Adjusted Intrinsic Value", f"Rs. {iv_adjusted:,.2f}")
         render_card("Projected 10Y EPS", f"Rs. {future_eps_10y:.2f}")
       with p2:
-        render_card("Graham IV (PE 8.5, Net)", f"Rs. {iv_85_net:.2f}")
-        render_card("Projected 10Y Stock Price", f"Rs. {future_price_10y:.2f}")
+        render_card("Projected 10Y Stock Price", f"Rs. {future_price_10y:,.2f}")
       with p3:
         render_card("Projected 10Y Dividends", f"Rs. {future_div_10y:.2f}")
         render_card(
             "Total 10Y Value (Price + Div)",
-            f"Rs. {future_total_val:.2f} ({total_cagr:.2f}% CAGR)",
+            f"Rs. {future_total_val:,.2f} ({total_cagr:.2f}% CAGR)",
         )
 
       st.markdown('<h3 class="section-title">3. 10-Year Historical Financial Data</h3>', unsafe_allow_html=True)
