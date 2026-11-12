@@ -134,8 +134,11 @@ if st.button("Run Valuation"):
       current_pe = cmp / eps[-1] if eps[-1] > 0 else 0.0
       latest_debt_ps = debt_ps[-1]
 
-      iv_7_net = (avg_eps * (7.0 + 1.0 * avg_growth_g)) - latest_debt_ps
-      iv_85_net = (avg_eps * (8.5 + 2.0 * avg_growth_g)) - latest_debt_ps
+      iv_7_gross = avg_eps * (7.0 + 1.0 * avg_growth_g)
+      iv_85_gross = avg_eps * (8.5 + 2.0 * avg_growth_g)
+
+      iv_7_net = iv_7_gross - latest_debt_ps
+      iv_85_net = iv_85_gross - latest_debt_ps
 
       future_eps_10y = eps[-1] * ((1.0 + eps_cagr / 100.0) ** 10)
       future_price_10y = future_eps_10y * current_pe
@@ -165,6 +168,17 @@ if st.button("Run Valuation"):
         st.metric("10Y EPS CAGR", f"{eps_cagr:.2f}%")
         st.metric("Projected Price CAGR", f"{price_cagr:.2f}%")
         st.metric("Projected Total CAGR", f"{total_cagr:.2f}%")
+
+      st.subheader("10-Year Future Projections")
+      col3, col4 = st.columns(2)
+      with col3:
+        st.metric("Projected 10Y EPS", f"Rs. {future_eps_10y:.2f}")
+        st.metric(
+            "Projected 10Y Stock Price", f"Rs. {future_price_10y:.2f}"
+        )
+      with col4:
+        st.metric("Projected 10Y Dividends", f"Rs. {future_div_10y:.2f}")
+        st.metric("Total Value (Price + Div)", f"Rs. {future_total_val:.2f}")
 
       table_df = pd.DataFrame({
           "Year": raw_data["years"],
